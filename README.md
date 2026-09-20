@@ -140,10 +140,10 @@ cost a full debugging session to learn.
 
 ## Status
 
-Working: folder watching, tag extraction, matching, review, Spotify auth and
+Working: folder watching, tag extraction, matching, review, Spotify and Apple auth, and
 playlist push, local state.
 
-Not built yet: Apple Music and TIDAL adapters, audio fingerprinting for the
+Not built yet: TIDAL adapter, audio fingerprinting for the
 no-match queue, background sync with notifications.
 
 ## Licence
