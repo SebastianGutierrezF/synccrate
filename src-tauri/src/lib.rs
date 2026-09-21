@@ -943,6 +943,21 @@ async fn check_for_update() -> UpdateStatus {
     }
 }
 
+/// Open the page where a licence is bought.
+///
+/// Same rule as `open_download`: no URL from the frontend, only the service
+/// this build already talks to.
+#[tauri::command]
+async fn open_purchase() -> Result<(), String> {
+    let url = format!("{}/#plans", licence::service_url().trim_end_matches('/'));
+
+    if auth::open_in_browser(&url) {
+        Ok(())
+    } else {
+        Err(url)
+    }
+}
+
 /// Open the download page in the user's browser.
 ///
 /// Takes no URL. The frontend asking to open an arbitrary address would make
@@ -987,7 +1002,8 @@ pub fn run() {
             apple_login,
             apple_logout,
             check_for_update,
-            open_download
+            open_download,
+            open_purchase
         ])
         .run(tauri::generate_context!())
         .expect("error while running DJ Library Sync");

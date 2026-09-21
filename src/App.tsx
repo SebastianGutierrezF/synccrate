@@ -81,6 +81,50 @@ export default function App() {
   const [licenceDraft, setLicenceDraft] = useState("");
   const [licenceBusy, setLicenceBusy] = useState(false);
   const [licenceError, setLicenceError] = useState<string | null>(null);
+
+  /**
+   * A metered licence with nothing left. A trial counts: it is an ordinary
+   * licence that happens to have been free, and running it down is the single
+   * most likely moment for someone to want to buy one.
+   */
+  const outOfCredits =
+    !!licence?.active && !licence.unlimited && (licence.credits ?? 0) <= 0;
+
+  /**
+   * Whether to offer the key field.
+   *
+   * It used to appear only when no licence was active at all, which meant
+   * starting the free trial removed it — a trial *is* an active licence — and
+   * there was then no way to enter a purchased key, least of all at the moment
+   * the trial ran out and you had just bought one.
+   */
+  const canEnterLicence = !licence?.active || !licence.has_key || outOfCredits;
+
+  /** The key field, wherever it is offered. One definition, so the two places
+   *  that show it cannot drift apart. */
+  const keyField = (prompt: string) => (
+    <>
+      <p className="dim small">{prompt}</p>
+      <div className="row">
+        <input
+          value={licenceDraft}
+          onChange={(e) => setLicenceDraft(e.target.value)}
+          placeholder="DJLS-XXXX-XXXX-XXXX-XXXX"
+          spellCheck={false}
+        />
+        <button
+          onClick={() =>
+            licenceAction(() =>
+              invoke<LicenceStatus>("activate_licence", { key: licenceDraft }),
+            )
+          }
+          disabled={licenceBusy || !licenceDraft.trim()}
+        >
+          Activate
+        </button>
+      </div>
+    </>
+  );
   /** Files the watcher has seen land since the last match. */
   const [pending, setPending] = useState<string[]>([]);
 
@@ -593,37 +637,41 @@ export default function App() {
                           {licenceBusy ? "Working…" : "Start free trial"}
                         </button>
                       </div>
-                      <p className="dim small">Already bought a licence?</p>
-                      <div className="row">
-                        <input
-                          value={licenceDraft}
-                          onChange={(e) => setLicenceDraft(e.target.value)}
-                          placeholder="DJLS-XXXX-XXXX-XXXX-XXXX"
-                          spellCheck={false}
-                        />
-                        <button
-                          onClick={() =>
-                            licenceAction(() =>
-                              invoke<LicenceStatus>("activate_licence", {
-                                key: licenceDraft,
-                              }),
-                            )
-                          }
-                          disabled={licenceBusy || !licenceDraft.trim()}
-                        >
-                          Activate
-                        </button>
-                      </div>
+                      {keyField("Already bought a licence?")}
                     </>
                   ) : (
                     <>
-                      <p className="dim">
+                      <p className={outOfCredits ? "warn" : "dim"}>
                         {licence.unlimited
                           ? "Unlimited plan."
-                          : `${licence.credits ?? 0} track${
-                              licence.credits === 1 ? "" : "s"
-                            } left on your ${licence.plan ?? "licence"}.`}
+                          : outOfCredits
+                            ? `Your ${licence.plan ?? "licence"} is out of tracks.`
+                            : `${licence.credits} track${
+                                licence.credits === 1 ? "" : "s"
+                              } left on your ${licence.plan ?? "licence"}.`}
                       </p>
+
+                      {outOfCredits && (
+                        <div className="row">
+                          <button
+                            onClick={() =>
+                              licenceAction(async () => {
+                                await invoke("open_purchase");
+                                return licence;
+                              })
+                            }
+                          >
+                            Buy a licence
+                          </button>
+                        </div>
+                      )}
+
+                      {canEnterLicence &&
+                        keyField(
+                          outOfCredits
+                            ? "Already bought one? Paste the key."
+                            : "Bought a licence? Paste the key.",
+                        )}
                       {!licence.apple_connected ? (
                         <>
                           <p className="dim small">
@@ -701,7 +749,16 @@ export default function App() {
             </select>
           )}
           {target === "apple_music" && licence && !licence.unlimited && (
-            <span className="pill">{licence.credits ?? 0} left</span>
+            // At zero this stops being a readout and becomes the way out. The
+            // key field lives on the services screen, and someone who has just
+            // run out has no reason to guess that.
+            outOfCredits ? (
+              <button className="pill warn" onClick={() => setShowServices(true)}>
+                Out of tracks — add a licence
+              </button>
+            ) : (
+              <span className="pill">{licence.credits} left</span>
+            )
           )}
           {account.signed_in && (
             <span className="who">{account.display_name ?? account.user_id}</span>

@@ -249,6 +249,20 @@ button.link {
   letter-spacing: 0.05em;
 }
 .pill.good { border-color: var(--accent); color: var(--accent); }
+/* The credits pill becomes a button when it runs out. `button` sets a solid
+   background and its own radius and padding, all of which would make it stop
+   looking like the pill it replaces. */
+button.pill {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 11px;
+  font-size: 11px;
+  font-weight: 400;
+  font-family: inherit;
+}
+button.pill.warn { border-color: #fbbf24; color: #fbbf24; }
+button.pill.warn:hover { background: rgba(251, 191, 36, 0.12); }
 
 .setup {
   margin-top: 16px;
