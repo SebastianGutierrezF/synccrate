@@ -152,6 +152,28 @@ export default function App() {
     }
   }, [connectedTargets, target]);
 
+  // Everything on screen belongs to one service: matches, the chosen URI for
+  // each row, the playlists, the last push result.
+  //
+  // This clears on the change rather than at the places that cause it, because
+  // there are two and only one of them remembered. The fallback above moves the
+  // target on its own when a service disconnects — a licence lapsing, an Apple
+  // session expiring — and left one service's URIs on screen under another
+  // service's name. `chosen` is keyed by local track id, which is identical
+  // across platforms, so nothing about the stale rows looked stale; the push
+  // was refused by the guard that checks a URI against the platform, which is
+  // the last line of defence and not where this should have been caught.
+  //
+  // Rows only ever arrive from `runMatch`, which the user starts, so there is
+  // no load for this to race.
+  useEffect(() => {
+    setRows([]);
+    setSelected(new Set());
+    setChosen({});
+    setPlaylists([]);
+    setResult(null);
+  }, [target]);
+
   const [bootError, setBootError] = useState<string | null>(null);
 
   // A newer build, when there is one. Checked once at startup: releases are
@@ -633,18 +655,9 @@ export default function App() {
           {connectedTargets.length > 1 && (
             <select
               value={target}
-              onChange={(e) => {
-                setTarget(e.target.value);
-                // Matches, choices and playlists are all per-platform, so
-                // everything on screen belongs to the old one. `chosen` and
-                // `selected` are keyed by local track id, so leaving them
-                // behind means carrying one service's URIs into another.
-                setRows([]);
-                setSelected(new Set());
-                setChosen({});
-                setPlaylists([]);
-                setResult(null);
-              }}
+              // Clearing is handled by the effect on `target`, so that it
+              // happens however the target changes and not only here.
+              onChange={(e) => setTarget(e.target.value)}
               aria-label="Sync to"
             >
               {connectedTargets.map((p) => (
