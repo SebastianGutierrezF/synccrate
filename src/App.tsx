@@ -90,6 +90,16 @@ export default function App() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const [playlists, setPlaylists] = useState<PlaylistInfo[]>([]);
+  /**
+   * The service the rows on screen were matched against.
+   *
+   * Not derivable from `target`, which is the service currently *selected* —
+   * and the two disagreeing is exactly the bug this exists to catch. A stale
+   * closure once let a match run against one service while the screen named
+   * another, and nothing in the rows looked wrong, because `chosen` is keyed
+   * by the local track id and that is identical everywhere.
+   */
+  const [rowsPlatform, setRowsPlatform] = useState<string | null>(null);
   const [playlistName, setPlaylistName] = useState("");
   const [result, setResult] = useState<PushResult | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -172,6 +182,7 @@ export default function App() {
     setChosen({});
     setPlaylists([]);
     setResult(null);
+    setRowsPlatform(null);
   }, [target]);
 
   const [bootError, setBootError] = useState<string | null>(null);
@@ -283,13 +294,17 @@ export default function App() {
       setResult(null);
 
       try {
+        // Read once, so the rows and the record of what produced them cannot
+        // disagree even if the selection changes while this is in flight.
+        const platform = target;
         const found = await invoke<MatchRow[]>("match_folder", {
-          platform: target,
+          platform,
           path: config.watch_folder,
           acceptShorter: config.accept_shorter,
           rescan,
         });
         setRows(found);
+        setRowsPlatform(platform);
         setPending([]);
         // Confident matches are pre-selected; everything else waits for a
         // decision, which is the entire point of the verdict split.
@@ -312,7 +327,12 @@ export default function App() {
         setProgress(null);
       }
     },
-    [config]
+    // `target` is not optional here. Without it this closes over whatever the
+    // selection was when `config` last changed — in practice the initial
+    // "spotify" — so every match ran against Spotify however the dropdown
+    // read, wrote Spotify rows, and was then refused at the push because the
+    // push does depend on `target`.
+    [config, target],
   );
 
   const loadPlaylists = useCallback(async () => {
@@ -321,7 +341,9 @@ export default function App() {
     } catch (err) {
       setError(String(err));
     }
-  }, []);
+    // Same omission as runMatch: this listed one service's playlists while
+    // another was selected.
+  }, [target]);
 
   /**
    * The rows that can actually be sent: selected, with a choice resolvable
@@ -366,6 +388,17 @@ export default function App() {
       const items = buildItems(subset);
       if (items.length === 0 || !config) return;
 
+      // The rows and the selection must be the same service. The backend
+      // refuses a mismatch too, by inspecting each URI, but that is a last
+      // resort that reports a confusing thing about one track rather than the
+      // plain fact that the screen is stale.
+      if (rowsPlatform && rowsPlatform !== target) {
+        setError(
+          `These matches are for ${rowsPlatform}, not ${target}. Match again before pushing.`,
+        );
+        return;
+      }
+
       setBusy(`Adding ${items.length} track(s)…`);
       setError(null);
       try {
@@ -384,7 +417,7 @@ export default function App() {
         setBusy(null);
       }
     },
-    [buildItems, playlistName, config, persist, target, refreshLicence],
+    [buildItems, playlistName, config, persist, target, rowsPlatform, refreshLicence],
   );
 
   const stats = useMemo(() => {
