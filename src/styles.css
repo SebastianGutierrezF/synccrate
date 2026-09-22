@@ -229,6 +229,16 @@ button.link {
   padding: 16px 18px;
 }
 .service.soon { opacity: 0.6; }
+
+/* The licence is not one of the services below it — it governs them. The gap
+   is wider than the 12px between services so the grouping reads correctly. */
+.licence-card { margin-bottom: 22px; }
+
+/* An address is read and retyped, so it wants unambiguous characters. */
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text);
+}
 .service h2 { font-size: 15px; margin: 0 0 2px; }
 .service p { margin: 0; }
 

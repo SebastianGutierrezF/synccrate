@@ -71,6 +71,9 @@ export default function App() {
    *  connected, so once Spotify was set up there was no way back to it to add
    *  or change anything. It is a mode now, reachable from the header. */
   const [showServices, setShowServices] = useState(false);
+  /** Null until the user opens or closes it themselves; see `licenceOpen`. */
+  const [licenceOpenPref, setLicenceOpenPref] = useState<boolean | null>(null);
+  const [copiedSupport, setCopiedSupport] = useState(false);
   /**
    * Which service the sync path talks to. Spotify unless Apple Music is fully
    * connected, because Apple needs both a licence and a Music User Token and
@@ -102,6 +105,27 @@ export default function App() {
    * one is monthly and the other is not.
    */
   const canEnterLicence = !licence?.active || !licence.has_key;
+
+  /**
+   * Collapsed by default once there is a working licence, because then there
+   * is nothing to do and the header already says how many tracks are left.
+   * Open when something needs attention — no licence, or none left — which is
+   * exactly when someone arriving here is looking for the controls.
+   */
+  const licenceOpen = licenceOpenPref ?? (!licence?.active || outOfCredits);
+
+  const SUPPORT_EMAIL = "help@synccrate.io";
+  const copySupport = async () => {
+    try {
+      await navigator.clipboard.writeText(SUPPORT_EMAIL);
+      setCopiedSupport(true);
+      setTimeout(() => setCopiedSupport(false), 1800);
+    } catch {
+      // Some webviews refuse the clipboard. The address is on screen and
+      // selectable, so this is a missing convenience rather than a dead end.
+      setCopiedSupport(false);
+    }
+  };
 
   /** The key field, wherever it is offered. One definition, so the two places
    *  that show it cannot drift apart. */
@@ -529,18 +553,27 @@ export default function App() {
             person, and it governs any metered service. It lived inside
             Apple's setup panel, which made a monthly allowance look like a
             property of one connection. */}
-        <div className="service">
+        <div className="service licence-card">
           <div className="service-head">
-            <div>
-              <h2>Licence</h2>
-              <p className="dim small">
+            <button
+              className="group-toggle"
+              aria-expanded={licenceOpen}
+              onClick={() => setLicenceOpenPref(!licenceOpen)}
+            >
+              <span className="chevron" aria-hidden="true">
+                {licenceOpen ? "▾" : "▸"}
+              </span>
+              <span className="group-title">Licence</span>
+              <span className="dim small">
                 {!licence?.active
                   ? "Not activated"
                   : licence.unlimited
                     ? "Unlimited plan"
                     : `${licence.plan ?? "Licence"} plan`}
-              </p>
-            </div>
+              </span>
+            </button>
+            {/* Outside the toggle, so the number stays readable while collapsed
+                — which is the whole reason this block exists. */}
             {licence?.active &&
               (licence.unlimited ? (
                 <span className="pill good">unlimited</span>
@@ -551,7 +584,7 @@ export default function App() {
               ))}
           </div>
 
-          <div className="setup">
+          <div className="setup" hidden={!licenceOpen}>
             {licenceError && <p className="warn small">{licenceError}</p>}
 
             {!licence?.active ? (
@@ -598,8 +631,15 @@ export default function App() {
                       Buy a licence
                     </button>
                   )}
-                  <button className="ghost" onClick={() => void invoke("open_support")}>
-                    Change plan or get help
+                </div>
+
+                <p className="dim small">
+                  Changing plan, upgrading, or anything else — email{" "}
+                  <span className="mono">{SUPPORT_EMAIL}</span>
+                </p>
+                <div className="row">
+                  <button className="ghost" onClick={copySupport}>
+                    {copiedSupport ? "Copied" : "Copy address"}
                   </button>
                 </div>
 
