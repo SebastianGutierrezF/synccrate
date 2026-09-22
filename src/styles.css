@@ -239,6 +239,26 @@ button.link {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   color: var(--text);
 }
+
+/* The address and its copy button sit on one line, sized to each other —
+   a full-width button under a line of text made the address look like a
+   caption for the button rather than the thing being offered. */
+.support { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.support-address { font-size: 15px; }
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--dim);
+  padding: 4px 6px;
+  cursor: pointer;
+}
+.icon-btn:hover { color: var(--text); border-color: var(--text); }
+.icon-btn.done { color: var(--accent); border-color: var(--accent); }
 .service h2 { font-size: 15px; margin: 0 0 2px; }
 .service p { margin: 0; }
 

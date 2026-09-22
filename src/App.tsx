@@ -634,12 +634,39 @@ export default function App() {
                 </div>
 
                 <p className="dim small">
-                  Changing plan, upgrading, or anything else — email{" "}
-                  <span className="mono">{SUPPORT_EMAIL}</span>
+                  Changing plan, upgrading, or anything else — email:
                 </p>
-                <div className="row">
-                  <button className="ghost" onClick={copySupport}>
-                    {copiedSupport ? "Copied" : "Copy address"}
+                <div className="support">
+                  <span className="mono support-address">{SUPPORT_EMAIL}</span>
+                  <button
+                    className={`icon-btn${copiedSupport ? " done" : ""}`}
+                    onClick={copySupport}
+                    title={copiedSupport ? "Copied" : "Copy address"}
+                    aria-label={copiedSupport ? "Copied" : "Copy address"}
+                  >
+                    {/* Drawn rather than an emoji: emoji copy glyphs render at
+                        different sizes and weights on each platform, and this
+                        sits next to text it has to match. */}
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      {copiedSupport ? (
+                        <polyline points="20 6 9 17 4 12" />
+                      ) : (
+                        <>
+                          <rect x="9" y="9" width="13" height="13" rx="2" />
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </>
+                      )}
+                    </svg>
                   </button>
                 </div>
 
