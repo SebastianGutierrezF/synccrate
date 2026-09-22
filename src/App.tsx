@@ -84,8 +84,10 @@ export default function App() {
 
   /**
    * A metered licence with nothing left. A trial counts: it is an ordinary
-   * licence that happens to have been free, and running it down is the single
-   * most likely moment for someone to want to buy one.
+   * licence that happens to have been free.
+   *
+   * This is an allowance, not a state of the licence. It refills; the licence
+   * does not need renewing, reactivating, or anything else.
    */
   const outOfCredits =
     !!licence?.active && !licence.unlimited && (licence.credits ?? 0) <= 0;
@@ -93,12 +95,13 @@ export default function App() {
   /**
    * Whether to offer the key field.
    *
-   * It used to appear only when no licence was active at all, which meant
-   * starting the free trial removed it — a trial *is* an active licence — and
-   * there was then no way to enter a purchased key, least of all at the moment
-   * the trial ran out and you had just bought one.
+   * Only when there is a key to be entered: nobody yet, or a trial that could
+   * be replaced by a purchase. Explicitly *not* when a purchased licence has
+   * run out of tracks — that licence is fine, and asking someone to activate
+   * it again says their allowance and their licence are the same thing when
+   * one is monthly and the other is not.
    */
-  const canEnterLicence = !licence?.active || !licence.has_key || outOfCredits;
+  const canEnterLicence = !licence?.active || !licence.has_key;
 
   /** The key field, wherever it is offered. One definition, so the two places
    *  that show it cannot drift apart. */
@@ -522,6 +525,90 @@ export default function App() {
 
         {error && <div className="banner error">{error}</div>}
 
+        {/* The licence is not an Apple Music setting — it belongs to the
+            person, and it governs any metered service. It lived inside
+            Apple's setup panel, which made a monthly allowance look like a
+            property of one connection. */}
+        <div className="service">
+          <div className="service-head">
+            <div>
+              <h2>Licence</h2>
+              <p className="dim small">
+                {!licence?.active
+                  ? "Not activated"
+                  : licence.unlimited
+                    ? "Unlimited plan"
+                    : `${licence.plan ?? "Licence"} plan`}
+              </p>
+            </div>
+            {licence?.active &&
+              (licence.unlimited ? (
+                <span className="pill good">unlimited</span>
+              ) : (
+                <span className={outOfCredits ? "pill warn" : "pill"}>
+                  {licence.credits ?? 0} tracks left
+                </span>
+              ))}
+          </div>
+
+          <div className="setup">
+            {licenceError && <p className="warn small">{licenceError}</p>}
+
+            {!licence?.active ? (
+              <>
+                <p className="dim">
+                  Metered services need a licence. Start with 25 free tracks — no
+                  card, no account.
+                </p>
+                <div className="row">
+                  <button
+                    onClick={() => licenceAction(() => invoke<LicenceStatus>("start_trial"))}
+                    disabled={licenceBusy}
+                  >
+                    {licenceBusy ? "Working…" : "Start free trial"}
+                  </button>
+                  <button className="ghost" onClick={() => void invoke("open_purchase")}>
+                    Buy a licence
+                  </button>
+                </div>
+                {keyField("Already bought one?")}
+              </>
+            ) : (
+              <>
+                {outOfCredits ? (
+                  <p className="warn">
+                    No tracks left this period. Your licence is still active — this
+                    is a monthly allowance, not an expiry.
+                  </p>
+                ) : (
+                  <p className="dim">
+                    {licence.unlimited
+                      ? "No track limit."
+                      : `${licence.credits} track${
+                          licence.credits === 1 ? "" : "s"
+                        } left this period.`}
+                  </p>
+                )}
+
+                <div className="row">
+                  {/* Only a trial has something to buy. A purchased plan that
+                      has run out needs a different plan, not another licence. */}
+                  {!licence.has_key && (
+                    <button onClick={() => void invoke("open_purchase")}>
+                      Buy a licence
+                    </button>
+                  )}
+                  <button className="ghost" onClick={() => void invoke("open_support")}>
+                    Change plan or get help
+                  </button>
+                </div>
+
+                {canEnterLicence && keyField("Bought a licence? Paste the key.")}
+              </>
+            )}
+          </div>
+        </div>
+
         <div className="services">
           {platforms.map((p) => (
             <div key={p.id} className={`service ${p.available ? "" : "soon"}`}>
@@ -627,51 +714,14 @@ export default function App() {
                         through our service. Start with 25 free tracks — no card,
                         no account.
                       </p>
-                      <div className="row">
-                        <button
-                          onClick={() =>
-                            licenceAction(() => invoke<LicenceStatus>("start_trial"))
-                          }
-                          disabled={licenceBusy}
-                        >
-                          {licenceBusy ? "Working…" : "Start free trial"}
-                        </button>
-                      </div>
-                      {keyField("Already bought a licence?")}
+                      <p className="dim small">
+                        Start a trial or enter a key in the Licence block above,
+                        then sign in here.
+                      </p>
                     </>
                   ) : (
                     <>
-                      <p className={outOfCredits ? "warn" : "dim"}>
-                        {licence.unlimited
-                          ? "Unlimited plan."
-                          : outOfCredits
-                            ? `Your ${licence.plan ?? "licence"} is out of tracks.`
-                            : `${licence.credits} track${
-                                licence.credits === 1 ? "" : "s"
-                              } left on your ${licence.plan ?? "licence"}.`}
-                      </p>
 
-                      {outOfCredits && (
-                        <div className="row">
-                          <button
-                            onClick={() =>
-                              licenceAction(async () => {
-                                await invoke("open_purchase");
-                                return licence;
-                              })
-                            }
-                          >
-                            Buy a licence
-                          </button>
-                        </div>
-                      )}
-
-                      {canEnterLicence &&
-                        keyField(
-                          outOfCredits
-                            ? "Already bought one? Paste the key."
-                            : "Bought a licence? Paste the key.",
-                        )}
                       {!licence.apple_connected ? (
                         <>
                           <p className="dim small">
@@ -749,12 +799,13 @@ export default function App() {
             </select>
           )}
           {target === "apple_music" && licence && !licence.unlimited && (
-            // At zero this stops being a readout and becomes the way out. The
-            // key field lives on the services screen, and someone who has just
-            // run out has no reason to guess that.
+            // At zero this stops being a readout and becomes the way to the
+            // Licence block, which is where the options are. It does not say
+            // "add a licence": there may well already be one, and the
+            // allowance running out says nothing about it.
             outOfCredits ? (
               <button className="pill warn" onClick={() => setShowServices(true)}>
-                Out of tracks — add a licence
+                Out of tracks — see options
               </button>
             ) : (
               <span className="pill">{licence.credits} left</span>

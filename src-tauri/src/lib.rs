@@ -943,6 +943,22 @@ async fn check_for_update() -> UpdateStatus {
     }
 }
 
+/// Open a message to support, for plan changes and anything the app cannot do.
+///
+/// A mailto rather than a form: there is no support system to post to, and the
+/// user's mail client already knows who they are. No address from the
+/// frontend, for the same reason as the two below.
+#[tauri::command]
+async fn open_support() -> Result<(), String> {
+    let url = "mailto:help@synccrate.io?subject=Plan%20change";
+
+    if auth::open_in_browser(url) {
+        Ok(())
+    } else {
+        Err(url.to_string())
+    }
+}
+
 /// Open the page where a licence is bought.
 ///
 /// Same rule as `open_download`: no URL from the frontend, only the service
@@ -1003,7 +1019,8 @@ pub fn run() {
             apple_logout,
             check_for_update,
             open_download,
-            open_purchase
+            open_purchase,
+            open_support
         ])
         .run(tauri::generate_context!())
         .expect("error while running DJ Library Sync");
